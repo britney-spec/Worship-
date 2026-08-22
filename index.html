@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<title>安靜靈修敬拜 · 帶領稿</title>
+<style>
+:root{
+  --ink:#0E1620; --ink-2:#141F2B; --line:#22303F;
+  --paper:#EDE7DA; --paper-dim:#9AA9B6;
+  --stream:#7FC8C0; --gold:#E0B872; --moon:#9FB6E0; --warn:#E88B7D;
+  --k:1;
+  --sans:"PingFang TC","Noto Sans TC","Heiti TC","Microsoft JhengHei",system-ui,sans-serif;
+  --serif:"Songti TC","Noto Serif TC","Source Han Serif TC","PingFang TC",serif;
+  --kr:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic","PingFang TC",sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--sans);-webkit-text-size-adjust:100%}
+
+/* ── 選擇模式 ───────────────────────────── */
+#picker{position:fixed;inset:0;z-index:40;background:var(--ink);display:flex;
+  flex-direction:column;justify-content:center;align-items:center;gap:26px;padding:28px}
+#picker h1{font-size:clamp(22px,3.4vw,30px);font-weight:600;margin:0;text-align:center}
+#picker .sub{color:var(--paper-dim);font-size:16px;margin:-12px 0 0;text-align:center;line-height:1.7}
+.roles{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  width:100%;max-width:680px}
+.role{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:26px 24px;
+  cursor:pointer;text-align:left;font-family:inherit;color:var(--paper);transition:border-color .2s}
+.role:active{background:#1C2A38}
+.role.lead{border-color:rgba(159,182,224,.45)}
+.role.follow{border-color:rgba(224,184,114,.45)}
+.role b{display:block;font-size:23px;font-weight:600;margin-bottom:8px}
+.role .who{font-size:14px;letter-spacing:.18em;margin-bottom:14px}
+.role.lead .who{color:var(--moon)} .role.follow .who{color:var(--gold)}
+.role p{margin:0;font-size:15px;line-height:1.75;color:var(--paper-dim)}
+
+/* ── 主畫面 ─────────────────────────────── */
+#app{display:none}
+body.ready #app{display:block}
+body.ready #picker{display:none}
+
+#stream{position:fixed;left:0;top:0;bottom:0;width:8px;background:#16212C;z-index:5}
+#streamFill{position:absolute;left:0;bottom:0;width:100%;
+  background:linear-gradient(180deg,var(--stream),#3E7F86);transition:height .5s ease}
+#streamDot{position:absolute;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;
+  background:var(--paper);box-shadow:0 0 12px rgba(127,200,192,.9);transition:bottom .5s ease}
+
+header{position:fixed;top:0;left:8px;right:0;min-height:54px;display:flex;align-items:center;
+  gap:10px;padding:0 14px;z-index:6;flex-wrap:wrap}
+.step-no{font-variant-numeric:tabular-nums;color:var(--paper-dim);font-size:14px;letter-spacing:.14em}
+.clock{font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;min-width:104px}
+.clock.warn{color:var(--gold)} .clock.over{color:var(--warn)}
+.total{font-variant-numeric:tabular-nums;color:var(--paper-dim);font-size:14px}
+.spacer{flex:1}
+button.tool{background:transparent;border:1px solid var(--line);color:var(--paper-dim);
+  font-family:inherit;font-size:14px;padding:7px 13px;border-radius:999px;cursor:pointer}
+button.tool:active{background:var(--ink-2)}
+button.tool.on{border-color:var(--stream);color:var(--stream)}
+button.tool:focus-visible,.nav:focus-visible,.role:focus-visible{outline:2px solid var(--stream);outline-offset:3px}
+
+#sync{display:inline-flex;align-items:center;gap:9px;font-size:15px;white-space:nowrap;
+  border:1px solid var(--line);border-radius:999px;padding:7px 15px 7px 12px;cursor:pointer;
+  background:var(--ink-2);color:var(--paper)}
+#dot{width:11px;height:11px;border-radius:50%;background:#8C97A2;flex:none}
+#dot.ok{background:var(--stream);box-shadow:0 0 9px rgba(127,200,192,.85)}
+#dot.try{background:var(--gold);animation:pulse 1.2s infinite}
+#dot.off{background:var(--warn)}
+@keyframes pulse{50%{opacity:.35}}
+
+/* 角色識別條 */
+#rolebar{position:fixed;top:0;left:8px;right:0;height:3px;z-index:7}
+body.lead #rolebar{background:linear-gradient(90deg,var(--moon),transparent 70%)}
+body.follow #rolebar{background:linear-gradient(90deg,var(--gold),transparent 70%)}
+
+main{position:absolute;inset:54px 0 76px 8px;overflow:hidden;
+  padding:4px clamp(18px,4vw,56px) 10px;display:flex;align-items:center}
+.card{width:100%;max-width:1200px;margin:0 auto;animation:rise .4s ease}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.top{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:calc(14px*var(--k))}
+.tag{font-size:calc(13px*var(--k));letter-spacing:.2em;padding:4px 11px;
+  border:1px solid currentColor;border-radius:4px;white-space:nowrap}
+.t-say{color:var(--moon)} .t-sing{color:var(--stream)}
+.t-all{color:var(--gold)} .t-word{color:var(--gold)}
+h1{font-size:calc(24px*var(--k));font-weight:600;margin:0;line-height:1.2}
+.cue{font-size:calc(14px*var(--k));color:var(--stream);letter-spacing:.04em;margin:0}
+.cue::before{content:"♪ "}
+
+.say{font-size:calc(25px*var(--k));line-height:1.85;margin:0 0 calc(16px*var(--k))}
+.say:last-child{margin-bottom:0}
+.lead-in{font-size:calc(21px*var(--k));line-height:1.8;color:var(--stream);margin:0 0 calc(20px*var(--k))}
+
+.verse{font-family:var(--serif);font-size:calc(24px*var(--k));line-height:1.85;margin:0}
+.verse p{margin:0 0 calc(14px*var(--k))}
+.ref{font-family:var(--sans);font-size:calc(14px*var(--k));color:var(--gold);letter-spacing:.1em;margin:0}
+
+.grid{display:grid;gap:calc(18px*var(--k)) clamp(28px,4vw,60px);
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.lbl{display:block;font-size:calc(12px*var(--k));font-weight:400;letter-spacing:.22em;
+  color:var(--paper-dim);margin:0 0 calc(8px*var(--k))}
+.blk p{font-size:calc(27px*var(--k));line-height:1.75;margin:0;font-weight:500}
+.kr .ln{margin:0 0 calc(11px*var(--k))}
+.kr b{display:block;font-family:var(--kr);font-size:calc(25px*var(--k));font-weight:500;line-height:1.45}
+.kr i{display:block;font-style:normal;font-size:calc(14px*var(--k));color:var(--paper-dim);line-height:1.5}
+.wait{font-size:calc(26px*var(--k));color:var(--paper-dim);letter-spacing:.24em;margin:0}
+
+footer{position:fixed;left:8px;right:0;bottom:0;height:76px;display:flex;gap:10px;
+  padding:8px 14px 14px;z-index:6}
+.nav{flex:0 0 100px;background:var(--ink-2);border:1px solid var(--line);color:var(--paper);
+  border-radius:12px;font-family:inherit;font-size:18px;cursor:pointer}
+.nav:active{background:#1C2A38}
+.nav[disabled]{opacity:.3}
+.next{flex:1;text-align:left;padding:0 20px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.next small{color:var(--paper-dim);font-size:12px;letter-spacing:.18em}
+.next span{font-size:18px}
+
+/* 會眾模式：藏掉講稿與控制項 */
+body.follow .say,body.follow .lead-in,body.follow .cue,
+body.follow .lead-only{display:none}
+body.follow main{inset:54px 0 20px 8px}
+body.follow.manual main{inset:54px 0 76px 8px}
+body.follow footer{display:none}
+body.follow.manual footer{display:flex}
+
+/* ── 面板 ───────────────────────────────── */
+.sheetwrap{position:fixed;inset:0;background:rgba(9,14,20,.97);z-index:30;display:none;
+  overflow-y:auto;padding:clamp(22px,5vw,60px)}
+.sheetwrap.show{display:block}
+.sheet{max-width:800px;margin:0 auto}
+.sheet h2{font-size:23px;margin:0 0 16px}
+.sheet li{font-size:18px;line-height:1.95}
+.sheet a{color:var(--stream)}
+.sheet p{font-size:17px;line-height:1.85;color:var(--paper-dim)}
+.sheet p b{color:var(--paper)}
+.statline{display:flex;align-items:center;gap:10px;font-size:19px;color:var(--paper);
+  border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:0 0 18px}
+@media (max-width:700px){ .total{display:none} .clock{font-size:22px;min-width:88px} .nav{flex-basis:80px;font-size:16px} }
+@media (prefers-reduced-motion:reduce){ .card{animation:none} #streamFill,#streamDot,#dot.try{transition:none;animation:none} }
+</style>
+</head>
+<body>
+
+<div id="picker">
+  <h1>這台裝置是？</h1>
+  <p class="sub">選錯了也沒關係，右上角隨時可以換。</p>
+  <div class="roles">
+    <button class="role lead" id="pickLead">
+      <span class="who">領 袖</span>
+      <b>我帶敬拜</b>
+      <p>看得到完整講稿、計時器，由你控制翻頁，其他人會跟著你跳。</p>
+    </button>
+    <button class="role follow" id="pickFollow">
+      <span class="who">會 眾</span>
+      <b>我跟著看</b>
+      <p>只顯示歌詞和經文，不會看到講稿，畫面自動跟著領袖翻頁。</p>
+    </button>
+  </div>
+  <p class="sub" id="pickStat">連線檢查中…</p>
+</div>
+
+<div id="app">
+<div id="rolebar"></div>
+<div id="stream"><div id="streamFill"></div><div id="streamDot"></div></div>
+
+<header>
+  <span class="step-no" id="stepNo">01 / 11</span>
+  <span class="clock lead-only" id="clock">01:45</span>
+  <button class="tool lead-only" id="play">開始</button>
+  <button class="tool lead-only" id="reset">重設</button>
+  <span class="spacer"></span>
+  <span class="total lead-only" id="total">總計 00:00 / 25:00</span>
+  <button class="tool" id="smaller">A−</button>
+  <button class="tool" id="bigger">A＋</button>
+  <button class="tool lead-only" id="prepBtn">準備</button>
+  <span id="sync"><span id="dot"></span><span id="syncTxt">檢查中</span></span>
+</header>
+
+<main id="main"></main>
+
+<footer>
+  <button class="nav" id="prev">← 上一段</button>
+  <button class="nav next" id="next"><small>下一段</small><span id="nextTitle"></span></button>
+</footer>
+</div>
+
+<!-- 連線面板 -->
+<div class="sheetwrap" id="netPanel">
+  <div class="sheet">
+    <h2>連線狀態</h2>
+    <div class="statline"><span id="dot2" style="width:11px;height:11px;border-radius:50%;background:#8C97A2"></span>
+      <span id="statTxt">檢查中…</span></div>
+    <p id="statHelp"></p>
+    <p style="margin-top:22px">
+      <button class="tool" id="retryBtn">重新連線</button>
+      <button class="tool" id="swapBtn" style="margin-left:8px">切換身分</button>
+      <button class="tool" id="manualBtn" style="margin-left:8px">會眾自行翻頁</button>
+    </p>
+    <h2 style="margin-top:34px">如果一直顯示單機模式</h2>
+    <p>同步走的是公開廣播服務（ntfy.sh），<b>不需要密碼或認證碼</b>。但如果這個檔案是在
+    <b>聊天視窗的預覽框</b>裡打開的，該環境會禁止對外連線，這時無論如何都會是單機模式。<br>
+    解法：把這個 HTML 檔<b>下載下來，放到任何一個免費靜態網頁空間</b>
+    （GitHub Pages、Netlify、Cloudflare Pages…），用那個網址開，兩台就會連得上。</p>
+    <h2 style="margin-top:34px">連不上也不用慌</h2>
+    <p>同步斷掉的時候，<b>你這台永遠是正常的</b>，講稿、計時、翻頁都不受影響。
+    會眾那邊只要按一次「會眾自行翻頁」，就能自己滑；或者你口頭說一聲「翻下一頁」就好。
+    敬拜不會因為連線而中斷。</p>
+    <p style="margin-top:24px"><button class="tool" onclick="document.getElementById('netPanel').classList.remove('show')">關閉</button></p>
+  </div>
+</div>
+
+<!-- 準備面板 -->
+<div class="sheetwrap" id="prep">
+  <div class="sheet">
+    <h2>開始前的準備</h2>
+    <ul>
+      <li>iPad：設定 → 顯示與亮度 → 自動鎖定 → <b>永不</b></li>
+      <li>開啟勿擾模式，螢幕亮度調低</li>
+      <li>音樂 1《如鹿切慕溪水》鋼琴伴奏<br>
+        <a href="https://youtu.be/T0bg7NYl3wo" target="_blank" rel="noopener">youtu.be/T0bg7NYl3wo</a></li>
+      <li>音樂 2《最真實的我 Just As I Am》韓文原版<br>
+        <a href="https://youtu.be/n3JoMXJDY-E" target="_blank" rel="noopener">youtu.be/n3JoMXJDY-E</a></li>
+      <li>音量比平常小一階，人聲要蓋得過伴奏</li>
+    </ul>
+    <h2 style="margin-top:30px">給小組成員</h2>
+    <p>把<b>同一個網址</b>傳給大家。他們打開後，在第一個畫面選「<b>我跟著看</b>」就好，
+    不需要輸入任何東西，也不用改網址。</p>
+    <p>每一頁都會自動縮到剛好一整頁，不需要上下滑。左右滑或按底部按鈕換頁，
+    鍵盤左右鍵換頁、空白鍵暫停計時。</p>
+    <p style="margin-top:24px"><button class="tool" onclick="document.getElementById('prep').classList.remove('show')">關閉</button></p>
+  </div>
+</div>
+
+<script>
+const STEPS = [
+{
+  no:1, sec:105, tag:"我說", cls:"t-say", title:"開場",
+  cue:"音樂還沒開始",
+  html:
+  '<p class="say">今天的敬拜會跟平常比較不一樣。</p>'+
+  '<p class="say">大家可以坐在位置上，安靜心，閉上眼睛。<br>'+
+  '我們這個時候，一起把腦海中的節奏慢下來。</p>'+
+  '<p class="say">大家一起深呼吸三次。<br>'+
+  '吸氣　吐氣　　吸氣　吐氣　　然後吸氣　好好的吐氣。</p>'
+},
+{
+  no:2, sec:75, tag:"我說 · 禱告", cls:"t-say", title:"開場禱告",
+  cue:"仍然沒有音樂",
+  html:
+  '<p class="say">親愛的天父，謝謝您現在就在這裡。<br>'+
+  '我們把等一下的時間交托給你。</p>'+
+  '<p class="say">求你幫助我們，把那些等一下要做的事、<br>'+
+  '還沒確認的訊息、在腦海中自己跟自己對話的聲音，<br>'+
+  '先全部放下來。</p>'+
+  '<p class="say">主啊，求你的靈現在就在我們中間，<br>'+
+  '讓我們安靜下來，聆聽你的聲音。</p>'
+},
+{
+  no:3, sec:180, tag:"我唱 · 台語", cls:"t-sing", title:"第一首 · 第一遍｜台語獨唱",
+  cue:"播放《如鹿切慕溪水》伴奏（第 1 次）",
+  html:
+  '<p class="lead">第一遍請大家先安靜心來聆聽，把自己帶到神面前。</p>'+
+  '<div class="grid">'+
+  '<div class="blk"><span class="lbl">主 歌</span><p>'+
+  '主啊，我的心渴慕你，<br>如鹿渴慕溪水。<br>'+
+  '只有你是我心所愛，<br>我渴慕來敬拜你。</p></div>'+
+  '<div class="blk"><span class="lbl">副 歌</span><p>'+
+  '你是我的氣力盾牌，<br>我靈單單降服於你。<br>'+
+  '只有你是我心所愛，<br>我渴慕來敬拜你。</p></div>'+
+  '</div>'
+},
+{
+  no:4, sec:135, tag:"讀經", cls:"t-word", title:"詩篇 42 篇",
+  cue:"伴奏繼續 · 音量轉小",
+  html:
+  '<div class="verse grid">'+
+  '<div><p>「上帝啊，我的心切慕你，<br>像鹿切慕溪水。<br>'+
+  '我心裡渴慕上帝，渴慕永活的上帝，<br>我何時才能去朝見祂呢？</p>'+
+  '<p>我晝夜以淚為食，人們整天譏笑我：<br>『你的上帝在哪裡？』</p></div>'+
+  '<div><p>從前我與眾人同行，帶領大家去上帝的殿，<br>'+
+  '在歡呼、感恩聲中一起過節。<br>我回想這些事，心中無限憂傷。</p>'+
+  '<p>我的心啊！你為何沮喪？為何在我裡面煩躁？<br>'+
+  '要仰望上帝，因為我還要讚美祂——<br>我的救主，我的上帝。」</p>'+
+  '<p class="ref">詩篇 42:1-5 · 當代譯本</p></div>'+
+  '</div>'
+},
+{
+  no:5, sec:180, tag:"大家一起唱 · 中文", cls:"t-all", title:"第一首 · 第二遍｜中文齊唱",
+  cue:"伴奏音量拉回",
+  html:
+  '<p class="lead">現在再請大家一起用中文來唱。</p>'+
+  '<div class="grid">'+
+  '<div class="blk"><span class="lbl">V E R S E</span><p>'+
+  '神啊 我的心切慕你<br>如鹿切慕溪水<br>'+
+  '惟有祢是我心所愛<br>我渴慕來敬拜祢</p></div>'+
+  '<div class="blk"><span class="lbl">C H O R U S</span><p>'+
+  '祢是我的力量盾牌<br>我靈單單降服於祢<br>'+
+  '惟有祢是我心所愛<br>我渴慕來敬拜祢</p></div>'+
+  '</div>'
+},
+{
+  no:6, sec:135, tag:"我說 · 分享", cls:"t-say", title:"見證分享",
+  cue:"音樂淡出 · 房間安靜",
+  html:
+  '<p class="say">這個禮拜線上讀經分享的時候，我跟大家說過，<br>'+
+  '那陣子的我，做什麼事都提不起勁，<br>'+
+  '不想見任何人，也不想親近神。</p>'+
+  '<p class="say">但你們知道嗎？就是那樣的我，<br>'+
+  '神仍然深深地愛著、完完全全地接納。<br>'+
+  '這個世界上，再沒有任何一個人，能夠像祂那樣愛我們。</p>'+
+  '<p class="say">也是在那個時候我才發現，<br>'+
+  '原來我比自己以為的，還要更愛祂。</p>'+
+  '<p class="say">因為就算我推開了所有的人，<br>'+
+  '拚命想把自己最糟的那一面藏起來，<br>'+
+  '就算我已經沒有力氣了，<br>'+
+  '還是用最後一絲氣息告訴祂：<br>'+
+  '<b>神啊，求你救我。我不是你的女兒嗎？你救救我吧。</b></p>'
+},
+{
+  no:7, sec:90, tag:"我說", cls:"t-say", title:"反思引導",
+  cue:"安靜 · 準備進第二首",
+  html:
+  '<p class="say">現在我想要請大家想一想，<br>'+
+  '這一個禮拜，我們是為了什麼事情而心煩、憂慮、焦慮？</p>'+
+  '<p class="say">也許是工作，也許是家人，<br>'+
+  '也許是連自己都說不清楚的那種感覺。<br>'+
+  '我們當中有很多人，晚上睡不著，也睡不好。</p>'+
+  '<p class="say">現在，請你把手放在自己的心上。<br>'+
+  '不用說出來，也不用整理清楚，<br>'+
+  '就把那件讓你煩悶、放不下的事，<br>'+
+  '帶進下一首歌裡，帶到神的面前。</p>'
+},
+{
+  no:8, sec:210, tag:"我唱 · 韓文", cls:"t-sing", title:"第二首 · 第一遍｜韓文獨唱",
+  cue:"播放《最真實的我》韓文原版（第 1 次）",
+  html:
+  '<p class="lead">這一遍你可以閉上眼睛，安靜地禱告。把你心裡最害怕的、<br>'+
+  '沒有辦法對任何人說的、只有神知道的那件事，現在就告訴祂，求祂來救你。</p>'+
+  '<div class="grid kr">'+
+  '<div class="blk"><span class="lbl">V E R S E · 主歌</span>'+
+  '<div class="ln"><b>내 모습 이대로 사랑 하시네</b><i>Nae moseup idaero sarang hasine</i></div>'+
+  '<div class="ln"><b>연약함 그대로 사랑 하시네</b><i>Yeonyakham geudaero sarang hasine</i></div>'+
+  '<div class="ln"><b>나의 모든 발걸음 주가 아시나니</b><i>Naui modeun balgeoreum juga asinani</i></div>'+
+  '<div class="ln"><b>날 인도 하소서</b><i>Nal indo hasoseo</i></div>'+
+  '</div>'+
+  '<div class="blk"><span class="lbl">C H O R U S · 副歌</span>'+
+  '<div class="ln"><b>주의 날개 아래 거하는 것</b><i>Juui nalgae arae geohaneun geot</i></div>'+
+  '<div class="ln"><b>주의 임재 안에 거하는 것</b><i>Juui imjae ane geohaneun geot</i></div>'+
+  '<div class="ln"><b>나의 가장 큰 소망 나의 가장 큰 은혜</b><i>Naui gajang keun somang, naui gajang keun eunhye</i></div>'+
+  '<div class="ln"><b>주와 함께 동행하는 일</b><i>Juwa hamkke donghaeng-haneun il</i></div>'+
+  '</div>'+
+  '</div>'
+},
+{
+  no:9, sec:210, tag:"大家一起唱 · 中文", cls:"t-all", title:"第二首 · 第二遍｜中文齊唱",
+  cue:"伴奏音量拉回 · 邀請大家一起",
+  html:
+  '<div class="grid">'+
+  '<div class="blk"><span class="lbl">V 1</span><p>'+
+  '你全然的愛我 最真實的我<br>你全然接納我 即或我軟弱<br>'+
+  '生命中的每一步 有你豐盛恩典<br>使我更靠近你</p></div>'+
+  '<div class="blk"><span class="lbl">V 2</span><p>'+
+  '你全然的愛我 緊緊擁抱我<br>你全然接納我 永不離開我<br>'+
+  '生命中的每一步 有你豐盛恩典<br>使我更靠近你</p></div>'+
+  '<div class="blk"><span class="lbl">C H O R U S</span><p>'+
+  '我只想要藏在你翅膀蔭下<br>渴求能更多停留在你同在<br>'+
+  '生命最大的盼望 就在你恩典之中<br>你就站立在我的身旁</p></div>'+
+  '</div>'
+},
+{
+  no:10, sec:90, tag:"我說 · 禱告", cls:"t-say", title:"回應禱告",
+  cue:"伴奏很小聲地繼續",
+  html:
+  '<p class="say">是啊，天父，你全然地接納我們，<br>'+
+  '接納那一個最真實的我們。</p>'+
+  '<p class="say">也許不是最完美的，不是最好看的，<br>'+
+  '卻是你最愛的那一個。</p>'+
+  '<p class="say">我們生命中的每一步、每一個腳印，<br>'+
+  '每一個景況、每一個季節，<br>'+
+  '都有你豐盛的恩典，<br>'+
+  '都是為了使我們能夠更加更加地靠近你。</p>'
+},
+{
+  no:11, sec:90, tag:"我說 · 禱告", cls:"t-say", title:"結束禱告",
+  cue:"伴奏淡出 · 之後接小組聚會",
+  html:
+  '<p class="say">親愛的天父，感謝你憐憫我們。<br>'+
+  '求你賜下出人意外的平安，<br>'+
+  '讓我們在今天晚上都能好好地睡覺。</p>'+
+  '<p class="say">因為你說，靠著那加給我力量的，我凡事都能做。<br>'+
+  '我們信靠你。</p>'+
+  '<p class="say">感謝你垂聽我們的禱告，<br>'+
+  '感謝你喜悅我們的敬拜。<br>'+
+  '孩子的禱告是奉主耶穌寶貴的名求，阿門。</p>'
+}
+];
+
+const TOTAL = STEPS.reduce(function(a,s){return a+s.sec},0);
+var i=0, left=STEPS[0].sec, elapsed=0, running=false, timer=null, cap=1.6;
+var ROLE=null, MANUAL=false;
+
+function $(id){return document.getElementById(id)}
+function mmss(s){var n=Math.abs(s);
+  return (s<0?"+":"")+String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0")}
+
+/* ── 同步引擎：用 Artifact 內建的共享儲存，不需外部伺服器 ───────── */
+var SYNC={
+  ok:false, state:"check", peers:0, msg:"",
+  TOPIC:"worship-quiet-8f3k2q",          /* 大家共用的頻道，不需要密碼 */
+  HOST:"ntfy.sh",                        /* 免註冊的公開廣播服務 */
+  id:"d"+Math.random().toString(16).slice(2,8),
+  ws:null, seen:{},
+
+  url:function(){ return "wss://"+this.HOST+"/"+this.TOPIC+"/ws?since=10m" },
+  post:function(obj){
+    return fetch("https://"+this.HOST+"/"+this.TOPIC,
+      {method:"POST", body:JSON.stringify(obj)}).catch(function(){});
+  },
+
+  /* 建立 WebSocket 連線 */
+  probe:function(){
+    var S=this;
+    S.state="check"; paint();
+    return new Promise(function(done){
+      var settled=false;
+      try{ S.ws=new WebSocket(S.url()) }
+      catch(e){ S.fail("瀏覽器不允許連線"); done(false); return }
+
+      S.ws.onopen=function(){
+        settled=true; S.ok=true; S.state="ok"; S.msg=""; paint();
+        if(ROLE==="lead") S.push(i);
+        if(ROLE==="follow") S.beat();
+        done(true);
+      };
+      S.ws.onmessage=function(ev){
+        var env,d;
+        try{ env=JSON.parse(ev.data) }catch(e){ return }
+        if(env.event!=="message"||!env.message) return;
+        try{ d=JSON.parse(env.message) }catch(e){ return }
+
+        if(d.hb && ROLE==="lead"){ S.seen[d.hb]=Date.now(); S.count(); return }
+        if(typeof d.p==="number" && ROLE==="follow" && !MANUAL){
+          if(d.p!==i && d.p>=0 && d.p<STEPS.length){ i=d.p; left=STEPS[i].sec; render() }
+          if(S.state!=="ok"){ S.state="ok"; paint() }
+        }
+      };
+      S.ws.onerror=function(){ if(!settled){ settled=true; S.fail("連線被擋住"); done(false) } };
+      S.ws.onclose=function(){
+        if(!settled){ settled=true; S.fail("連線被擋住"); done(false); return }
+        if(S.ok){ S.ok=false; S.state="check"; paint(); setTimeout(function(){ S.probe() },3000) }
+      };
+      setTimeout(function(){
+        if(!settled){ settled=true; try{S.ws.close()}catch(e){} S.fail("連線逾時"); done(false) }
+      },8000);
+    });
+  },
+  fail:function(m){ this.ok=false; this.state="off"; this.msg=m||"無法連線"; paint() },
+
+  /* 領袖：翻頁就廣播 */
+  push:function(n){ if(this.ok && ROLE==="lead") this.post({p:n,t:Date.now()}) },
+  /* 會眾：定時報到，讓領袖看得到台數 */
+  beat:function(){ if(this.ok && ROLE==="follow") this.post({hb:this.id,t:Date.now()}) },
+  /* 保活：連線掉了就重連 */
+  pull:function(){
+    if(!this.ws || this.ws.readyState>1){ if(this.state==="ok"){this.state="check";paint()} this.probe() }
+  },
+  /* 領袖：算出目前有幾台跟著（45 秒內報到過的） */
+  count:function(){
+    var now=Date.now(), n=0;
+    for(var k in this.seen){ if(now-this.seen[k]<45000) n++; else delete this.seen[k] }
+    if(n!==this.peers){ this.peers=n; paint() }
+  },
+  clear:function(){ this.seen={}; this.peers=0; paint() }
+};
+
+
+function paint(){
+  var d=$("dot"), t=$("syncTxt"), d2=$("dot2"), st=$("statTxt"), hp=$("statHelp");
+  var cls="", txt="", long="", help="";
+  if(SYNC.state==="check"){ cls="try"; txt="連線中"; long="正在連線…"; help="請稍等一下下。" }
+  else if(SYNC.state==="ok"){
+    cls="ok";
+    if(ROLE==="lead"){ txt = SYNC.peers>0 ? ("已連線 · "+SYNC.peers+" 台") : "已連線";
+      long="已連線，目前有 "+SYNC.peers+" 台會眾裝置跟著你。";
+      help="你按下一頁，他們就會跟著跳（約 1～3 秒）。" }
+    else { txt="跟隨中"; long="已連線，正在跟著領袖的畫面。"; help="不需要操作，畫面會自己翻。" }
+  }
+  else { cls="off"; txt="單機模式"; long="單機模式："+(SYNC.msg||"無法連線");
+    help="這台的講稿、計時、翻頁全部正常，只是不會和其他裝置連動。常見原因：目前這個預覽環境禁止連外網路——把這個檔案放到自己的網址（GitHub Pages、Netlify 等）再開，同步就會通。" }
+  d.className=cls; t.textContent=txt;
+  if(d2) d2.style.background = cls==="ok"?"#7FC8C0":(cls==="try"?"#E0B872":(cls==="off"?"#E88B7D":"#8C97A2"));
+  if(st) st.textContent=long;
+  if(hp) hp.textContent=help;
+  var ps=$("pickStat");
+  if(ps) ps.textContent = SYNC.state==="check" ? "連線檢查中…"
+    : (SYNC.state==="ok" ? "✓ 同步可用，兩邊會連動" : "⚠ 同步不可用，仍然可以單機使用");
+}
+
+/* ── 版面自動縮放：每一頁剛好一個畫面 ───────────────────────── */
+function fit(){
+  var m=$("main"), k=cap, guard=0;
+  document.documentElement.style.setProperty("--k",k);
+  while(m.scrollHeight>m.clientHeight+1 && k>0.45 && guard++<80){
+    k-=0.035; document.documentElement.style.setProperty("--k",k);
+  }
+}
+
+function render(){
+  var s=STEPS[i];
+  $("main").innerHTML='<div class="card"><div class="top">'+
+    '<span class="tag '+s.cls+'">'+s.tag+'</span><h1>'+s.title+'</h1>'+
+    '<p class="cue">'+s.cue+'</p></div>'+s.html+'</div>';
+  if(ROLE==="follow" && !$("main").querySelector(".grid,.verse")){
+    $("main").querySelector(".card").insertAdjacentHTML("beforeend",'<p class="wait">安 靜 等 候</p>');
+  }
+  $("stepNo").textContent=String(s.no).padStart(2,"0")+" / "+STEPS.length;
+  $("prev").disabled=(i===0); $("next").disabled=(i===STEPS.length-1);
+  $("nextTitle").textContent = i<STEPS.length-1 ? STEPS[i+1].title : "— 進入小組聚會 —";
+  var done=STEPS.slice(0,i).reduce(function(a,x){return a+x.sec},0)/TOTAL*100;
+  $("streamFill").style.height=done+"%";
+  $("streamDot").style.bottom="calc("+done+"% - 6px)";
+  tick(false);
+  requestAnimationFrame(fit);
+  SYNC.push(i);
+}
+function tick(dec){
+  if(dec){left--;elapsed++}
+  var c=$("clock");
+  c.textContent=mmss(left);
+  c.className="clock lead-only"+(left<0?" over":(left<=20?" warn":""));
+  $("total").textContent="總計 "+mmss(Math.max(elapsed,0))+" / "+mmss(TOTAL);
+}
+function go(n){ if(n<0||n>=STEPS.length)return; i=n; left=STEPS[i].sec; render() }
+function toggle(){
+  running=!running;
+  $("play").textContent=running?"暫停":"開始";
+  $("play").classList.toggle("on",running);
+  clearInterval(timer);
+  if(running)timer=setInterval(function(){tick(true)},1000);
+}
+
+/* ── 角色 ───────────────────────────────────────────── */
+function start(role){
+  ROLE=role;
+  document.body.classList.remove("lead","follow");
+  document.body.classList.add("ready",role);
+  render();
+  if(role==="lead"){
+    SYNC.clear();
+    SYNC.push(i);
+    setInterval(function(){ SYNC.count() },12000);
+    SYNC.count();
+  }else{
+    SYNC.beat();
+    setInterval(function(){ SYNC.pull() },2000);
+    setInterval(function(){ SYNC.beat() },15000);
+    SYNC.pull();
+  }
+  paint();
+}
+$("pickLead").onclick=function(){ start("lead") };
+$("pickFollow").onclick=function(){ start("follow") };
+$("swapBtn").onclick=function(){
+  $("netPanel").classList.remove("show");
+  MANUAL=false; document.body.classList.remove("manual");
+  document.body.classList.remove("ready","lead","follow");
+};
+$("manualBtn").onclick=function(){
+  MANUAL=!MANUAL;
+  document.body.classList.toggle("manual",MANUAL);
+  $("manualBtn").textContent = MANUAL ? "改回自動跟隨" : "會眾自行翻頁";
+};
+$("retryBtn").onclick=async function(){
+  try{SYNC.ws&&SYNC.ws.close()}catch(e){}
+  var ok=await SYNC.probe();
+  if(ok && ROLE==="lead"){ SYNC.push(i); SYNC.count() }
+  if(ok && ROLE==="follow"){ SYNC.pull(); SYNC.beat() }
+};
+$("sync").onclick=function(){ $("netPanel").classList.add("show") };
+
+$("play").onclick=toggle;
+$("reset").onclick=function(){left=STEPS[i].sec;tick(false)};
+$("next").onclick=function(){go(i+1)};
+$("prev").onclick=function(){go(i-1)};
+$("bigger").onclick=function(){cap=Math.min(2.4,cap+0.15);fit()};
+$("smaller").onclick=function(){cap=Math.max(0.8,cap-0.15);fit()};
+$("prepBtn").onclick=function(){$("prep").classList.add("show")};
+
+document.addEventListener("keydown",function(e){
+  if(ROLE==="follow"&&!MANUAL)return;
+  if(e.key==="ArrowRight")go(i+1);
+  if(e.key==="ArrowLeft")go(i-1);
+  if(e.key===" "){e.preventDefault();toggle()}
+});
+var x0=null;
+$("main").addEventListener("touchstart",function(e){x0=e.touches[0].clientX},{passive:true});
+$("main").addEventListener("touchend",function(e){
+  if(x0===null)return;
+  if(ROLE==="follow"&&!MANUAL){x0=null;return}
+  var dx=e.changedTouches[0].clientX-x0;
+  if(Math.abs(dx)>60)go(dx<0?i+1:i-1);
+  x0=null;
+},{passive:true});
+addEventListener("resize",fit);
+addEventListener("orientationchange",function(){setTimeout(fit,250)});
+
+paint();
+SYNC.probe();
+</script>
+</body>
+</html>
