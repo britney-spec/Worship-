@@ -129,6 +129,25 @@ body.follow.manual main{inset:54px 0 76px 8px}
 body.follow footer{display:none}
 body.follow.manual footer{display:flex}
 
+/* ── 會眾版：更安靜、更有呼吸感的版面 ── */
+body.follow main{justify-content:center}
+body.follow .card{text-align:center;max-width:880px}
+body.follow .top{flex-direction:column;align-items:center;gap:calc(14px*var(--k));
+  margin-bottom:calc(26px*var(--k))}
+body.follow .tag{letter-spacing:.34em;padding:6px 16px;opacity:.85}
+body.follow h1{font-size:calc(36px*var(--k));letter-spacing:.05em;line-height:1.35}
+body.follow h1::after{content:"";display:block;width:52px;height:1px;opacity:.55;
+  background:var(--gold);margin:calc(18px*var(--k)) auto 0}
+body.follow .fdo{font-size:calc(33px*var(--k));line-height:1.9;
+  margin:0 auto calc(18px*var(--k));max-width:22em}
+body.follow .fnote{max-width:24em;margin-left:auto;margin-right:auto}
+body.follow .blk p,body.follow .verse{text-align:center}
+body.follow .lbl{text-align:center;letter-spacing:.3em}
+body.follow .verse .ref{text-align:center}
+body.follow #app::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(120% 70% at 50% -10%,rgba(127,200,192,.10),transparent 60%)}
+body.follow main{z-index:1}
+
 /* ── 面板 ───────────────────────────────── */
 .sheetwrap{position:fixed;inset:0;background:rgba(9,14,20,.97);z-index:30;display:none;
   overflow-y:auto;padding:clamp(22px,5vw,60px)}
@@ -337,12 +356,12 @@ const STEPS = [
   '帶進下一首歌裡，帶到神的面前。</p>'
 },
 {
-  no:8, sec:210, tag:"開口禱告", cls:"t-sing", title:"第二首 · 第一遍｜韓文獨唱",
+  no:8, sec:210, tag:"開口禱告", cls:"t-sing", title:"第二首 · 第一遍",
   cue:"播放《最真實的我》韓文原版（第 1 次）",
   html:
-    '<p class="lead-big">這一遍你可以閉上眼睛，安靜地禱告。把你心裡最害怕的、<br>'+
-  '沒有辦法對任何人說的、只有神知道的那件事，現在就告訴祂，求祂來救你。</p>'+
-  '<p class="say">呼求神，求告神。<br>把真實的自己帶到神面前，求主憐憫。</p>'
+  '<p class="lead-big">我們一起同聲開口禱告。</p>'+
+  '<p class="say">呼求神，求告神。<br>把真實的自己帶到神面前，求主憐憫。</p>'+
+  '<p class="say">不用擔心，在這裡你是安全的。</p>'
 },
 {
   no:9, sec:210, tag:"大家一起唱 · 中文", cls:"t-all", title:"第二首 · 第二遍｜中文齊唱",
@@ -361,9 +380,11 @@ const STEPS = [
   '</div>'
 },
 {
-  no:10, sec:90, tag:"我說 · 禱告", cls:"t-say", title:"回應禱告",
-  cue:"伴奏很小聲地繼續",
+  no:10, sec:150, tag:"我說 · 禱告", cls:"t-say", title:"回應禱告 · 結束禱告",
+  cue:"伴奏很小聲地繼續，然後淡出",
   html:
+  '<div class="grid">'+
+  '<div><span class="lbl">① 回 應</span>'+
   '<p class="say">是啊，天父，你全然地接納我們，<br>'+
   '接納那一個最真實的我們。</p>'+
   '<p class="say">也許不是最完美的，不是最好看的，<br>'+
@@ -371,12 +392,8 @@ const STEPS = [
   '<p class="say">我們生命中的每一步、每一個腳印，<br>'+
   '每一個景況、每一個季節，<br>'+
   '都有你豐盛的恩典，<br>'+
-  '都是為了使我們能夠更加更加地靠近你。</p>'
-},
-{
-  no:11, sec:90, tag:"我說 · 禱告", cls:"t-say", title:"結束禱告",
-  cue:"伴奏淡出 · 之後接小組聚會",
-  html:
+  '都是為了使我們能夠更加更加地靠近你。</p></div>'+
+  '<div><span class="lbl">② 結 束</span>'+
   '<p class="say">親愛的天父，感謝你憐憫我們。<br>'+
   '求你賜下出人意外的平安，<br>'+
   '讓我們在今天晚上都能好好地睡覺。</p>'+
@@ -384,8 +401,15 @@ const STEPS = [
   '我們信靠你。</p>'+
   '<p class="say">感謝你垂聽我們的禱告，<br>'+
   '感謝你喜悅我們的敬拜。<br>'+
-  '孩子的禱告是奉主耶穌寶貴的名求，阿門。</p>'
+  '孩子的禱告是奉主耶穌寶貴的名求，阿門。</p></div>'+
+  '</div>'
+},
+{
+  no:11, sec:30, tag:"", cls:"t-say", title:"愉快地進入小組分享！",
+  cue:"",
+  html:''
 }
+
 ];
 
 /* ── 會眾看到的版本：只寫「現在要做什麼」，該唱的時候才出現歌詞 ── */
@@ -562,7 +586,7 @@ function render(){
   $("main").innerHTML='<div class="card"><div class="top">'+
     (v.tag ? '<span class="tag '+v.cls+'">'+v.tag+'</span>' : '')+
     (v.title ? '<h1>'+v.title+'</h1>' : '')+
-    (ROLE==="follow" ? '' : '<p class="cue">'+s.cue+'</p>')+'</div>'+v.html+'</div>';
+    ((ROLE==="follow"||!s.cue) ? '' : '<p class="cue">'+s.cue+'</p>')+'</div>'+v.html+'</div>';
   $("stepNo").textContent=String(s.no).padStart(2,"0")+" / "+STEPS.length;
   $("prev").disabled=(i===0); $("next").disabled=(i===STEPS.length-1);
   $("nextTitle").textContent = i<STEPS.length-1 ? STEPS[i+1].title : "— 進入小組聚會 —";
