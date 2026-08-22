@@ -105,6 +105,8 @@ h1{font-size:calc(24px*var(--k));font-weight:600;margin:0;line-height:1.2}
 .kr .ln{margin:0 0 calc(11px*var(--k))}
 .kr b{display:block;font-family:var(--kr);font-size:calc(25px*var(--k));font-weight:500;line-height:1.45}
 .kr i{display:block;font-style:normal;font-size:calc(14px*var(--k));color:var(--paper-dim);line-height:1.5}
+.fdo{font-size:calc(31px*var(--k));line-height:1.8;margin:0 0 calc(16px*var(--k));font-weight:500}
+.fnote{font-size:calc(20px*var(--k));line-height:1.8;color:var(--paper-dim);margin:calc(10px*var(--k)) 0 0}
 .wait{font-size:calc(26px*var(--k));color:var(--paper-dim);letter-spacing:.24em;margin:0}
 
 footer{position:fixed;left:8px;right:0;bottom:0;height:76px;display:flex;gap:10px;
@@ -397,6 +399,71 @@ const STEPS = [
 }
 ];
 
+/* ── 會眾看到的版本：只寫「現在要做什麼」，該唱的時候才出現歌詞 ── */
+var FV = [
+{ tag:"安靜預備", cls:"t-say", title:"安靜心，預備",
+  html:'<p class="fdo">閉上眼睛，把手機放遠一點。</p>'+
+       '<p class="fdo">跟著一起深呼吸三次。</p>'+
+       '<p class="fnote">今天的敬拜會安靜一些。不用趕，也不用做什麼。</p>' },
+
+{ tag:"一起禱告", cls:"t-say", title:"開場禱告",
+  html:'<p class="fdo">安靜下來，一起同心禱告。</p>' },
+
+{ tag:"安靜聆聽", cls:"t-sing", title:"《如鹿切慕溪水》台語",
+  html:'<p class="fdo">閉上眼睛，專心聆聽。</p>'+
+       '<p class="fdo">安靜心，把自己帶到神面前。</p>'+
+       '<p class="fnote">這一遍不用唱。</p>' },
+
+{ tag:"聆聽神的話", cls:"t-word", title:"詩篇 42 篇",
+  html:'<div class="verse grid">'+
+  '<div><p>「上帝啊，我的心切慕你，<br>像鹿切慕溪水。<br>'+
+  '我心裡渴慕上帝，渴慕永活的上帝，<br>我何時才能去朝見祂呢？</p>'+
+  '<p>我晝夜以淚為食，人們整天譏笑我：<br>『你的上帝在哪裡？』</p></div>'+
+  '<div><p>從前我與眾人同行，帶領大家去上帝的殿，<br>'+
+  '在歡呼、感恩聲中一起過節。<br>我回想這些事，心中無限憂傷。</p>'+
+  '<p>我的心啊！你為何沮喪？為何在我裡面煩躁？<br>'+
+  '要仰望上帝，因為我還要讚美祂——<br>我的救主，我的上帝。」</p>'+
+  '<p class="ref">詩篇 42:1-5 · 當代譯本</p></div></div>' },
+
+{ tag:"一起唱", cls:"t-all", title:"《如鹿切慕溪水》中文",
+  html:'<div class="grid">'+
+  '<div class="blk"><span class="lbl">V E R S E</span><p>'+
+  '神啊 我的心切慕你<br>如鹿切慕溪水<br>惟有祢是我心所愛<br>我渴慕來敬拜祢</p></div>'+
+  '<div class="blk"><span class="lbl">C H O R U S</span><p>'+
+  '祢是我的力量盾牌<br>我靈單單降服於祢<br>惟有祢是我心所愛<br>我渴慕來敬拜祢</p></div></div>' },
+
+{ tag:"安靜聆聽", cls:"t-say", title:"分享",
+  html:'<p class="fdo">安靜聆聽。</p>' },
+
+{ tag:"安靜思想", cls:"t-say", title:"安靜思想",
+  html:'<p class="fdo">這一個禮拜，<br>我是為了什麼事心煩、憂慮、焦慮？</p>'+
+       '<p class="fnote">不用說出來，也不用整理清楚。<br>把手放在自己的心上，把那件事帶進下一首歌。</p>' },
+
+{ tag:"閉眼禱告", cls:"t-sing", title:"《最真實的我 Just As I Am》韓文",
+  html:'<p class="fdo">閉上眼睛，安靜禱告。</p>'+
+       '<p class="fdo">把那件只有神知道的事告訴祂：<br>「主啊，求你救我。」</p>'+
+       '<p class="fnote">這一遍不用唱。</p>' },
+
+{ tag:"一起唱", cls:"t-all", title:"《最真實的我》中文",
+  html:'<div class="grid">'+
+  '<div class="blk"><span class="lbl">V 1</span><p>'+
+  '你全然的愛我 最真實的我<br>你全然接納我 即或我軟弱<br>'+
+  '生命中的每一步 有你豐盛恩典<br>使我更靠近你</p></div>'+
+  '<div class="blk"><span class="lbl">V 2</span><p>'+
+  '你全然的愛我 緊緊擁抱我<br>你全然接納我 永不離開我<br>'+
+  '生命中的每一步 有你豐盛恩典<br>使我更靠近你</p></div>'+
+  '<div class="blk"><span class="lbl">C H O R U S</span><p>'+
+  '我只想要藏在你翅膀蔭下<br>渴求能更多停留在你同在<br>'+
+  '生命最大的盼望 就在你恩典之中<br>你就站立在我的身旁</p></div></div>' },
+
+{ tag:"安靜禱告", cls:"t-say", title:"回應禱告",
+  html:'<p class="fdo">安靜，把自己交給神。</p>' },
+
+{ tag:"一起禱告", cls:"t-say", title:"結束禱告",
+  html:'<p class="fdo">一起禱告。</p>'+
+       '<p class="fnote">最後同聲說「阿門」。</p>' }
+];
+
 const TOTAL = STEPS.reduce(function(a,s){return a+s.sec},0);
 var i=0, left=STEPS[0].sec, elapsed=0, running=false, timer=null, cap=1.6;
 var ROLE=null, MANUAL=false;
@@ -509,12 +576,10 @@ function fit(){
 
 function render(){
   var s=STEPS[i];
+  var v=(ROLE==="follow" && FV[i]) ? FV[i] : s;
   $("main").innerHTML='<div class="card"><div class="top">'+
-    '<span class="tag '+s.cls+'">'+s.tag+'</span><h1>'+s.title+'</h1>'+
-    '<p class="cue">'+s.cue+'</p></div>'+s.html+'</div>';
-  if(ROLE==="follow" && !$("main").querySelector(".grid,.verse")){
-    $("main").querySelector(".card").insertAdjacentHTML("beforeend",'<p class="wait">安 靜 等 候</p>');
-  }
+    '<span class="tag '+v.cls+'">'+v.tag+'</span><h1>'+v.title+'</h1>'+
+    (ROLE==="follow" ? '' : '<p class="cue">'+s.cue+'</p>')+'</div>'+v.html+'</div>';
   $("stepNo").textContent=String(s.no).padStart(2,"0")+" / "+STEPS.length;
   $("prev").disabled=(i===0); $("next").disabled=(i===STEPS.length-1);
   $("nextTitle").textContent = i<STEPS.length-1 ? STEPS[i+1].title : "— 進入小組聚會 —";
