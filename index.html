@@ -485,49 +485,69 @@ function mmss(s){var n=Math.abs(s);
 
 /* ── 同步引擎：用 Artifact 內建的共享儲存，不需外部伺服器 ───────── */
 var SYNC={
-  ok:false, state:"check", peers:0, msg:"",
-  TOPIC:"worship-quiet-8f3k2q",          /* 大家共用的頻道，不需要密碼 */
-  HOST:"ntfy.sh",                        /* 免註冊的公開廣播服務 */
+  ok:false, state:"check", peers:0, msg:"", lastErr:"",
+  TOPIC:"worship-quiet-8f3k2q",     /* 共用頻道，不需要密碼 */
+  HOST:"ntfy.sh",                   /* 免註冊的公開廣播服務 */
   id:"d"+Math.random().toString(16).slice(2,8),
-  ws:null, seen:{},
+  ws:null, seen:{}, lastMsg:0, lastSend:0, cool:0, retries:0,
 
-  url:function(){ return "wss://"+this.HOST+"/"+this.TOPIC+"/ws" },
+  /* ── 送出訊息（節流 + 處理限流）────────────── */
   post:function(obj){
-    return fetch("https://"+this.HOST+"/"+this.TOPIC,
-      {method:"POST", body:JSON.stringify(obj)}).catch(function(){});
+    var S=this, now=Date.now();
+    if(now < S.cool) return;                      /* 被限流時暫停送出 */
+    S.lastSend=now;
+    return fetch("https://"+S.HOST+"/"+S.TOPIC,{method:"POST",body:JSON.stringify(obj)})
+      .then(function(r){
+        if(r.status===429){ S.cool=Date.now()+45000; S.lastErr="伺服器限流，45 秒後自動恢復"; paint() }
+        else if(!r.ok){ S.lastErr="伺服器回應 "+r.status; paint() }
+        else if(S.lastErr){ S.lastErr=""; paint() }
+      })
+      .catch(function(){ S.lastErr="送不出去（網路不通）"; paint() });
   },
 
-  /* 建立 WebSocket 連線 */
+  /* ── 收到一則訊息 ─────────────────────── */
+  handle:function(d,fresh){
+    var S=this;
+    if(!d) return;
+    if(d.join && ROLE==="lead"){ S.seen[d.join]=Date.now(); S.count(); S.push(i); return }
+    if(d.hb   && ROLE==="lead"){ S.seen[d.hb]=Date.now(); S.count(); return }
+    if(typeof d.p==="number" && ROLE==="follow" && !MANUAL){
+      /* 舊訊息（超過 10 分鐘）不採用，避免跳到上一場的頁碼 */
+      if(!fresh && d.t && (Date.now()-d.t) > 600000) return;
+      if(d.p!==i && d.p>=0 && d.p<STEPS.length){ i=d.p; left=STEPS[i].sec; render() }
+      if(S.state!=="ok"){ S.ok=true; S.state="ok"; paint() }
+    }
+  },
+
+  /* ── 即時連線 ───────────────────────── */
   probe:function(){
     var S=this;
     S.state="check"; paint();
     return new Promise(function(done){
       var settled=false;
-      try{ S.ws=new WebSocket(S.url()) }
+      try{ S.ws=new WebSocket("wss://"+S.HOST+"/"+S.TOPIC+"/ws") }
       catch(e){ S.fail("瀏覽器不允許連線"); done(false); return }
 
       S.ws.onopen=function(){
-        settled=true; S.ok=true; S.state="ok"; S.msg=""; paint();
-        if(ROLE==="lead") S.push(i);
-        if(ROLE==="follow") S.beat();
+        settled=true; S.ok=true; S.state="ok"; S.msg=""; S.retries=0; paint();
+        if(ROLE==="lead")   S.push(i);
+        if(ROLE==="follow"){ S.hello(); S.catchup() }
         done(true);
       };
       S.ws.onmessage=function(ev){
         var env,d;
         try{ env=JSON.parse(ev.data) }catch(e){ return }
         if(env.event!=="message"||!env.message) return;
+        S.lastMsg=Date.now();
         try{ d=JSON.parse(env.message) }catch(e){ return }
-
-        if(d.hb && ROLE==="lead"){ S.seen[d.hb]=Date.now(); S.count(); return }
-        if(typeof d.p==="number" && ROLE==="follow" && !MANUAL){
-          if(d.p!==i && d.p>=0 && d.p<STEPS.length){ i=d.p; left=STEPS[i].sec; render() }
-          if(S.state!=="ok"){ S.state="ok"; paint() }
-        }
+        S.handle(d,true);
       };
       S.ws.onerror=function(){ if(!settled){ settled=true; S.fail("連線被擋住"); done(false) } };
       S.ws.onclose=function(){
         if(!settled){ settled=true; S.fail("連線被擋住"); done(false); return }
-        if(S.ok){ S.ok=false; S.state="check"; paint(); setTimeout(function(){ S.probe() },3000) }
+        S.ok=false; S.state="check"; paint();
+        var wait=Math.min(2000*Math.pow(2,S.retries++),15000);
+        setTimeout(function(){ S.probe() },wait);
       };
       setTimeout(function(){
         if(!settled){ settled=true; try{S.ws.close()}catch(e){} S.fail("連線逾時"); done(false) }
@@ -536,15 +556,16 @@ var SYNC={
   },
   fail:function(m){ this.ok=false; this.state="off"; this.msg=m||"無法連線"; paint() },
 
-  /* 領袖：翻頁就廣播 */
-  push:function(n){ if(this.ok && ROLE==="lead") this.post({p:n,t:Date.now()}) },
-  /* 會眾：定時報到，讓領袖看得到台數 */
-  beat:function(){ if(this.ok && ROLE==="follow") this.post({hb:this.id,t:Date.now()}) },
-  /* 保險：主動查詢目前頁碼，避免漏收訊息後就停住 */
-  poll:function(){
+  /* ── 各角色的動作 ──────────────────────── */
+  push :function(n){ if(ROLE==="lead")   this.post({p:n,t:Date.now()}) },   /* 領袖：翻頁就廣播 */
+  hello:function(){ if(ROLE==="follow")  this.post({join:this.id,t:Date.now()}) }, /* 會眾：進場報到，領袖會立刻回報頁碼 */
+  beat :function(){ if(ROLE==="follow")  this.post({hb:this.id,t:Date.now()}) },   /* 會眾：每分鐘報平安 */
+
+  /* 補課：向伺服器要最近 10 分鐘的最後一則（漏收或剛進場時用）*/
+  catchup:function(){
     if(ROLE!=="follow"||MANUAL)return;
     var S=this;
-    fetch("https://"+S.HOST+"/"+S.TOPIC+"/json?poll=1&since=20s")
+    fetch("https://"+S.HOST+"/"+S.TOPIC+"/json?poll=1&since=10m")
       .then(function(r){ return r.text() })
       .then(function(t){
         var lines=t.trim().split("\n"), last=null;
@@ -553,30 +574,30 @@ var SYNC={
             var e=JSON.parse(lines[k]);
             if(e.event==="message"&&e.message){
               var d=JSON.parse(e.message);
-              if(typeof d.p==="number") last=d.p;
+              if(typeof d.p==="number") last=d;
             }
           }catch(_){}
         }
-        if(last!==null&&last!==i&&last>=0&&last<STEPS.length&&!MANUAL){
-          i=last; left=STEPS[i].sec; render();
-        }
-        if(S.state!=="ok"){ S.ok=true; S.state="ok"; paint() }
+        if(last) S.handle(last,false);
+        S.lastMsg=Date.now();
       })
       .catch(function(){});
   },
-  /* 保活：連線掉了就重連 */
-  pull:function(){
-    if(!this.ws || this.ws.readyState>1){ if(this.state==="ok"){this.state="check";paint()} this.probe() }
+
+  /* 保活：連線掉了就重連；太久沒收到訊息就補課一次 */
+  keepalive:function(){
+    if(!this.ws || this.ws.readyState>1){ this.probe(); return }
+    if(ROLE==="follow" && this.lastMsg && (Date.now()-this.lastMsg)>90000){ this.catchup() }
   },
-  /* 領袖：算出目前有幾台跟著（45 秒內報到過的） */
+
+  /* 領袖：算出目前有幾台跟著（三分鐘內報到過的）*/
   count:function(){
     var now=Date.now(), n=0;
-    for(var k in this.seen){ if(now-this.seen[k]<45000) n++; else delete this.seen[k] }
+    for(var k in this.seen){ if(now-this.seen[k]<180000) n++; else delete this.seen[k] }
     if(n!==this.peers){ this.peers=n; paint() }
   },
   clear:function(){ this.seen={}; this.peers=0; paint() }
 };
-
 
 function paint(){
   var d=$("dot"), t=$("syncTxt"), d2=$("dot2"), st=$("statTxt"), hp=$("statHelp");
@@ -587,14 +608,18 @@ function paint(){
     if(ROLE==="lead"){ txt = SYNC.peers>0 ? ("已連線 · "+SYNC.peers+" 台") : "已連線";
       long="已連線，目前有 "+SYNC.peers+" 台會眾裝置跟著你。";
       help="你按下一頁，他們就會跟著跳（約 1～3 秒）。" }
-    else { txt="跟隨中"; long="已連線，正在跟著領袖的畫面。"; help="不需要操作，畫面會自己翻。" }
+    if(SYNC.lastErr) help=SYNC.lastErr;
+    else { txt="跟隨中"; long="已連線，正在跟著領袖的畫面。";
+      help = SYNC.lastMsg ? ("上次收到領袖訊號："+Math.round((Date.now()-SYNC.lastMsg)/1000)+" 秒前")
+                          : "尚未收到領袖訊號（領袖那台選好身分後就會出現）";
+      if(SYNC.lastErr) help=SYNC.lastErr; }
   }
   else { cls="off"; txt="單機模式"; long="單機模式："+(SYNC.msg||"無法連線");
     help="這台的講稿、計時、翻頁全部正常，只是不會和其他裝置連動。常見原因：目前這個預覽環境禁止連外網路——把這個檔案放到自己的網址（GitHub Pages、Netlify 等）再開，同步就會通。" }
   d.className=cls; t.textContent=txt;
   if(d2) d2.style.background = cls==="ok"?"#7FC8C0":(cls==="try"?"#E0B872":(cls==="off"?"#E88B7D":"#8C97A2"));
   if(st) st.textContent=long;
-  if(hp) hp.textContent=help;
+  if(hp) hp.textContent = help + (SYNC.lastErr ? "（" + SYNC.lastErr + "）" : "");
   var ps=$("pickStat");
   if(ps) ps.textContent = SYNC.state==="check" ? "連線檢查中…"
     : (SYNC.state==="ok" ? "✓ 同步可用，兩邊會連動" : "⚠ 同步不可用，仍然可以單機使用");
@@ -650,17 +675,15 @@ function start(role){
   render();
   if(role==="lead"){
     SYNC.clear();
-    SYNC.push(i);
-    setInterval(function(){ SYNC.count() },12000);
-    setInterval(function(){ SYNC.push(i) },10000);
-    SYNC.count();
+    SYNC.push(i);                                        /* 進場先報一次目前頁碼 */
+    setInterval(function(){ SYNC.push(i) },60000);       /* 每分鐘重報，晚到的人也追得上 */
+    setInterval(function(){ SYNC.count() },15000);
   }else{
-    SYNC.beat();
-    setInterval(function(){ SYNC.pull() },3000);
-    setInterval(function(){ SYNC.poll() },4000);
-    setInterval(function(){ SYNC.beat() },15000);
-    SYNC.pull(); SYNC.poll();
+    SYNC.hello();                                        /* 進場報到，領袖會立刻回報頁碼 */
+    SYNC.catchup();                                      /* 同時自己補一次課 */
+    setInterval(function(){ SYNC.beat() },60000);
   }
+  setInterval(function(){ SYNC.keepalive() },5000);      /* 只檢查連線，不送訊息 */
   paint();
 }
 $("pickLead").onclick=function(){ start("lead") };
@@ -679,7 +702,7 @@ $("retryBtn").onclick=async function(){
   try{SYNC.ws&&SYNC.ws.close()}catch(e){}
   var ok=await SYNC.probe();
   if(ok && ROLE==="lead"){ SYNC.push(i); SYNC.count() }
-  if(ok && ROLE==="follow"){ SYNC.pull(); SYNC.beat() }
+  if(ok && ROLE==="follow"){ SYNC.hello(); SYNC.catchup() }
 };
 $("sync").onclick=function(){ $("netPanel").classList.add("show") };
 
@@ -707,7 +730,7 @@ $("main").addEventListener("touchend",function(e){
   x0=null;
 },{passive:true});
 document.addEventListener("visibilitychange",function(){
-  if(document.visibilityState==="visible" && ROLE==="follow"){ SYNC.pull(); SYNC.poll() }
+  if(document.visibilityState==="visible" && ROLE==="follow"){ SYNC.keepalive(); SYNC.catchup() }
 });
 addEventListener("resize",fit);
 addEventListener("orientationchange",function(){setTimeout(fit,250)});
