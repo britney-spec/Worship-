@@ -536,128 +536,75 @@ var MQ={
 /* ── 同步引擎：用 Artifact 內建的共享儲存，不需外部伺服器 ───────── */
 var SYNC={
   ok:false, state:"check", peers:0, msg:"", lastErr:"",
-  TOPIC:"worship-quiet-8f3k2q",     /* 共用頻道，不需要密碼 */
-  HOST:"ntfy.sh",                   /* 免註冊的公開廣播服務 */
+  TOPIC:"worship-quiet-8f3k2q",          /* 大家共用的頻道，不需要密碼 */
+  HOST:"ntfy.sh",                        /* 免註冊的公開廣播服務 */
   id:"d"+Math.random().toString(16).slice(2,8),
-  ws:null, seen:{}, lastMsg:0, lastSend:0, cool:0, retries:0,
+  ws:null, seen:{},
 
-  /* ── 送出訊息（節流 + 處理限流）────────────── */
-  wsOk:false,
-  note:function(){                       /* 任何一條通道通了就算連線成功 */
-    if(this.wsOk||MQ.ok){ this.ok=true; this.state="ok" }
-    else if(this.state==="ok"){ this.state="check" }
-    paint();
-  },
+  url:function(){ return "wss://"+this.HOST+"/"+this.TOPIC+"/ws?since=10m" },
   post:function(obj){
-    var S=this, now=Date.now();
-    MQ.pub(obj);                         /* 先走 MQTT，不受流量限制 */
-    if(now < S.cool) return;                      /* 被限流時暫停送出 */
-    S.lastSend=now;
-    return fetch("https://"+S.HOST+"/"+S.TOPIC,{method:"POST",body:JSON.stringify(obj)})
-      .then(function(r){
-        if(r.status===429){ S.cool=Date.now()+45000; S.lastErr="伺服器限流，45 秒後自動恢復"; paint() }
-        else if(!r.ok){ S.lastErr="伺服器回應 "+r.status; paint() }
-        else if(S.lastErr){ S.lastErr=""; paint() }
-      })
-      .catch(function(){ S.lastErr="送不出去（網路不通）"; paint() });
+    return fetch("https://"+this.HOST+"/"+this.TOPIC,
+      {method:"POST", body:JSON.stringify(obj)}).catch(function(){});
   },
 
-  /* ── 收到一則訊息 ─────────────────────── */
-  handle:function(d,fresh){
-    var S=this;
-    if(!d) return;
-    if(d.join && ROLE==="lead"){ S.seen[d.join]=Date.now(); S.count(); S.push(i); return }
-    if(d.hb   && ROLE==="lead"){ S.seen[d.hb]=Date.now(); S.count(); return }
-    if(typeof d.p==="number" && ROLE==="follow" && !MANUAL){
-      /* 舊訊息（超過 10 分鐘）不採用，避免跳到上一場的頁碼 */
-      if(!fresh && d.t && (Date.now()-d.t) > 600000) return;
-      if(d.p!==i && d.p>=0 && d.p<STEPS.length){ i=d.p; left=STEPS[i].sec; render() }
-      if(S.state!=="ok"){ S.ok=true; S.state="ok"; paint() }
-    }
-  },
-
-  /* ── 即時連線 ───────────────────────── */
+  /* 建立 WebSocket 連線 */
   probe:function(){
     var S=this;
     S.state="check"; paint();
     return new Promise(function(done){
       var settled=false;
-      try{ S.ws=new WebSocket("wss://"+S.HOST+"/"+S.TOPIC+"/ws") }
+      try{ S.ws=new WebSocket(S.url()) }
       catch(e){ S.fail("瀏覽器不允許連線"); done(false); return }
 
       S.ws.onopen=function(){
-        settled=true; S.wsOk=true; S.ok=true; S.state="ok"; S.msg=""; S.retries=0; paint();
-        if(ROLE==="lead")   S.push(i);
-        if(ROLE==="follow"){ S.hello(); S.catchup() }
+        settled=true; S.ok=true; S.state="ok"; S.msg=""; paint();
+        if(ROLE==="lead") S.push(i);
+        if(ROLE==="follow") S.beat();
         done(true);
       };
       S.ws.onmessage=function(ev){
         var env,d;
         try{ env=JSON.parse(ev.data) }catch(e){ return }
         if(env.event!=="message"||!env.message) return;
-        S.lastMsg=Date.now();
         try{ d=JSON.parse(env.message) }catch(e){ return }
-        S.handle(d,true);
+
+        if(d.hb && ROLE==="lead"){ S.seen[d.hb]=Date.now(); S.count(); return }
+        if(typeof d.p==="number" && ROLE==="follow" && !MANUAL){
+          /* 超過 3 分鐘的舊訊息不採用，避免跳到上一場的頁碼 */
+          if(d.t && (Date.now()-d.t) > 180000) return;
+          if(d.p!==i && d.p>=0 && d.p<STEPS.length){ i=d.p; left=STEPS[i].sec; render() }
+          if(S.state!=="ok"){ S.state="ok"; paint() }
+        }
       };
       S.ws.onerror=function(){ if(!settled){ settled=true; S.fail("連線被擋住"); done(false) } };
       S.ws.onclose=function(){
-        S.wsOk=false;
         if(!settled){ settled=true; S.fail("連線被擋住"); done(false); return }
-        S.note();
-        var wait=Math.min(2000*Math.pow(2,S.retries++),15000);
-        setTimeout(function(){ S.probe() },wait);
+        if(S.ok){ S.ok=false; S.state="check"; paint(); setTimeout(function(){ S.probe() },3000) }
       };
       setTimeout(function(){
         if(!settled){ settled=true; try{S.ws.close()}catch(e){} S.fail("連線逾時"); done(false) }
       },8000);
     });
   },
-  fail:function(m){ this.wsOk=false; this.msg=m||"無法連線";
-    if(MQ.ok){ this.ok=true; this.state="ok" } else { this.ok=false; this.state="off" }
-    paint() },
+  fail:function(m){ this.ok=false; this.state="off"; this.msg=m||"無法連線"; paint() },
 
-  /* ── 各角色的動作 ──────────────────────── */
-  push :function(n){ if(ROLE==="lead")   this.post({p:n,t:Date.now()}) },   /* 領袖：翻頁就廣播 */
-  hello:function(){ if(ROLE==="follow")  this.post({join:this.id,t:Date.now()}) }, /* 會眾：進場報到，領袖會立刻回報頁碼 */
-  beat :function(){ if(ROLE==="follow")  this.post({hb:this.id,t:Date.now()}) },   /* 會眾：每分鐘報平安 */
-
-  /* 補課：向伺服器要最近 10 分鐘的最後一則（漏收或剛進場時用）*/
-  catchup:function(){
-    if(ROLE!=="follow"||MANUAL)return;
-    var S=this;
-    fetch("https://"+S.HOST+"/"+S.TOPIC+"/json?poll=1&since=10m")
-      .then(function(r){ return r.text() })
-      .then(function(t){
-        var lines=t.trim().split("\n"), last=null;
-        for(var k=0;k<lines.length;k++){
-          try{
-            var e=JSON.parse(lines[k]);
-            if(e.event==="message"&&e.message){
-              var d=JSON.parse(e.message);
-              if(typeof d.p==="number") last=d;
-            }
-          }catch(_){}
-        }
-        if(last) S.handle(last,false);
-        S.lastMsg=Date.now();
-      })
-      .catch(function(){});
+  /* 領袖：翻頁就廣播 */
+  push:function(n){ if(this.ok && ROLE==="lead") this.post({p:n,t:Date.now()}) },
+  /* 會眾：定時報到，讓領袖看得到台數 */
+  beat:function(){ if(this.ok && ROLE==="follow") this.post({hb:this.id,t:Date.now()}) },
+  /* 保活：連線掉了就重連 */
+  pull:function(){
+    if(!this.ws || this.ws.readyState>1){ if(this.state==="ok"){this.state="check";paint()} this.probe() }
   },
-
-  /* 保活：連線掉了就重連；太久沒收到訊息就補課一次 */
-  keepalive:function(){
-    if(!this.ws || this.ws.readyState>1){ this.probe(); return }
-    if(ROLE==="follow" && this.lastMsg && (Date.now()-this.lastMsg)>90000){ this.catchup() }
-  },
-
-  /* 領袖：算出目前有幾台跟著（三分鐘內報到過的）*/
+  /* 領袖：算出目前有幾台跟著（90 秒內報到過的） */
   count:function(){
     var now=Date.now(), n=0;
-    for(var k in this.seen){ if(now-this.seen[k]<180000) n++; else delete this.seen[k] }
+    for(var k in this.seen){ if(now-this.seen[k]<90000) n++; else delete this.seen[k] }
     if(n!==this.peers){ this.peers=n; paint() }
   },
   clear:function(){ this.seen={}; this.peers=0; paint() }
 };
+
 
 function paint(){
   var d=$("dot"), t=$("syncTxt"), d2=$("dot2"), st=$("statTxt"), hp=$("statHelp");
@@ -737,16 +684,16 @@ function start(role){
   render();
   if(role==="lead"){
     SYNC.clear();
-    SYNC.push(i);                                        /* 進場先報一次目前頁碼 */
-    setInterval(function(){ SYNC.push(i) },60000);       /* 每分鐘重報，晚到的人也追得上 */
-    setInterval(function(){ SYNC.count() },15000);
+    SYNC.push(i);
+    setInterval(function(){ SYNC.push(i) },60000);   /* 每分鐘重報，晚到的人也追得上 */
+    setInterval(function(){ SYNC.count() },12000);
+    SYNC.count();
   }else{
-    SYNC.hello();                                        /* 進場報到，領袖會立刻回報頁碼 */
-    SYNC.catchup();                                      /* 同時自己補一次課 */
-    setInterval(function(){ SYNC.beat() },60000);
+    SYNC.beat();
+    setInterval(function(){ SYNC.pull() },2000);
+    setInterval(function(){ SYNC.beat() },30000);
+    SYNC.pull();
   }
-  setInterval(function(){ SYNC.keepalive() },5000);
-      /* 只檢查連線，不送訊息 */
   paint();
 }
 $("pickLead").onclick=function(){ start("lead") };
@@ -765,7 +712,7 @@ $("retryBtn").onclick=async function(){
   try{SYNC.ws&&SYNC.ws.close()}catch(e){}
   var ok=await SYNC.probe();
   if(ok && ROLE==="lead"){ SYNC.push(i); SYNC.count() }
-  if(ok && ROLE==="follow"){ SYNC.hello(); SYNC.catchup() }
+  if(ok && ROLE==="follow"){ SYNC.pull(); SYNC.beat() }
 };
 $("sync").onclick=function(){ $("netPanel").classList.add("show") };
 
@@ -793,7 +740,7 @@ $("main").addEventListener("touchend",function(e){
   x0=null;
 },{passive:true});
 document.addEventListener("visibilitychange",function(){
-  if(document.visibilityState==="visible" && ROLE==="follow"){ SYNC.keepalive(); SYNC.catchup() }
+  if(document.visibilityState==="visible" && ROLE==="follow"){ SYNC.pull() }
 });
 addEventListener("resize",fit);
 addEventListener("orientationchange",function(){setTimeout(fit,250)});
