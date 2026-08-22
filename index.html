@@ -483,6 +483,56 @@ function $(id){return document.getElementById(id)}
 function mmss(s){var n=Math.abs(s);
   return (s<0?"+":"")+String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0")}
 
+
+/* ── 第二條獨立通道：MQTT（公開伺服器，訊息可保留，晚到的人一連就同步）── */
+function loadScript(urls,done){
+  if(!urls.length){ done(false); return }
+  var el=document.createElement("script");
+  el.src=urls[0];
+  el.onload=function(){ done(true) };
+  el.onerror=function(){ loadScript(urls.slice(1),done) };
+  document.head.appendChild(el);
+}
+var MQ={
+  ok:false, client:null,
+  URL:"wss://broker.hivemq.com:8884/mqtt",
+  TOPIC:"worshipquiet8f3k2q/page",
+  init:function(){
+    var M=this;
+    if(window.mqtt){ M.connect(); return }
+    loadScript([
+      "https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js",
+      "https://unpkg.com/mqtt/dist/mqtt.min.js"
+    ],function(okLoad){ if(okLoad&&window.mqtt) M.connect() });
+  },
+  connect:function(){
+    var M=this;
+    try{
+      M.client=mqtt.connect(M.URL,{
+        clientId:"w"+Math.random().toString(16).slice(2,10),
+        connectTimeout:8000, reconnectPeriod:5000, clean:true
+      });
+    }catch(e){ return }
+    M.client.on("connect",function(){
+      M.ok=true; SYNC.note();
+      M.client.subscribe(M.TOPIC,{qos:0});
+      if(ROLE==="lead") M.pub({p:i,t:Date.now()});
+    });
+    M.client.on("message",function(t,payload,packet){
+      var d; try{ d=JSON.parse(payload.toString()) }catch(e){ return }
+      SYNC.lastMsg=Date.now();
+      SYNC.handle(d, !(packet&&packet.retain));
+    });
+    M.client.on("error",function(){ M.ok=false; SYNC.note() });
+    M.client.on("close",function(){ M.ok=false; SYNC.note() });
+  },
+  pub:function(o){
+    if(!this.ok||!this.client) return;
+    try{ this.client.publish(this.TOPIC,JSON.stringify(o),{qos:0,retain:(typeof o.p==="number")}) }catch(e){}
+  }
+};
+
 /* ── 同步引擎：用 Artifact 內建的共享儲存，不需外部伺服器 ───────── */
 var SYNC={
   ok:false, state:"check", peers:0, msg:"", lastErr:"",
@@ -492,8 +542,15 @@ var SYNC={
   ws:null, seen:{}, lastMsg:0, lastSend:0, cool:0, retries:0,
 
   /* ── 送出訊息（節流 + 處理限流）────────────── */
+  wsOk:false,
+  note:function(){                       /* 任何一條通道通了就算連線成功 */
+    if(this.wsOk||MQ.ok){ this.ok=true; this.state="ok" }
+    else if(this.state==="ok"){ this.state="check" }
+    paint();
+  },
   post:function(obj){
     var S=this, now=Date.now();
+    MQ.pub(obj);                         /* 先走 MQTT，不受流量限制 */
     if(now < S.cool) return;                      /* 被限流時暫停送出 */
     S.lastSend=now;
     return fetch("https://"+S.HOST+"/"+S.TOPIC,{method:"POST",body:JSON.stringify(obj)})
@@ -529,7 +586,7 @@ var SYNC={
       catch(e){ S.fail("瀏覽器不允許連線"); done(false); return }
 
       S.ws.onopen=function(){
-        settled=true; S.ok=true; S.state="ok"; S.msg=""; S.retries=0; paint();
+        settled=true; S.wsOk=true; S.ok=true; S.state="ok"; S.msg=""; S.retries=0; paint();
         if(ROLE==="lead")   S.push(i);
         if(ROLE==="follow"){ S.hello(); S.catchup() }
         done(true);
@@ -544,8 +601,9 @@ var SYNC={
       };
       S.ws.onerror=function(){ if(!settled){ settled=true; S.fail("連線被擋住"); done(false) } };
       S.ws.onclose=function(){
+        S.wsOk=false;
         if(!settled){ settled=true; S.fail("連線被擋住"); done(false); return }
-        S.ok=false; S.state="check"; paint();
+        S.note();
         var wait=Math.min(2000*Math.pow(2,S.retries++),15000);
         setTimeout(function(){ S.probe() },wait);
       };
@@ -554,7 +612,9 @@ var SYNC={
       },8000);
     });
   },
-  fail:function(m){ this.ok=false; this.state="off"; this.msg=m||"無法連線"; paint() },
+  fail:function(m){ this.wsOk=false; this.msg=m||"無法連線";
+    if(MQ.ok){ this.ok=true; this.state="ok" } else { this.ok=false; this.state="off" }
+    paint() },
 
   /* ── 各角色的動作 ──────────────────────── */
   push :function(n){ if(ROLE==="lead")   this.post({p:n,t:Date.now()}) },   /* 領袖：翻頁就廣播 */
@@ -605,14 +665,16 @@ function paint(){
   if(SYNC.state==="check"){ cls="try"; txt="連線中"; long="正在連線…"; help="請稍等一下下。" }
   else if(SYNC.state==="ok"){
     cls="ok";
-    if(ROLE==="lead"){ txt = SYNC.peers>0 ? ("已連線 · "+SYNC.peers+" 台") : "已連線";
+    if(ROLE==="lead"){
+      txt = SYNC.peers>0 ? ("已連線 · "+SYNC.peers+" 台") : "已連線";
       long="已連線，目前有 "+SYNC.peers+" 台會眾裝置跟著你。";
-      help="你按下一頁，他們就會跟著跳（約 1～3 秒）。" }
-    if(SYNC.lastErr) help=SYNC.lastErr;
-    else { txt="跟隨中"; long="已連線，正在跟著領袖的畫面。";
+      help="你按下一頁，他們就會跟著跳（約 1～3 秒）。";
+    }else{
+      txt="跟隨中"; long="已連線，正在跟著領袖的畫面。";
       help = SYNC.lastMsg ? ("上次收到領袖訊號："+Math.round((Date.now()-SYNC.lastMsg)/1000)+" 秒前")
                           : "尚未收到領袖訊號（領袖那台選好身分後就會出現）";
-      if(SYNC.lastErr) help=SYNC.lastErr; }
+    }
+    long += "　通道：" + (SYNC.wsOk?"廣播 ":"") + (MQ.ok?"MQTT ":"") ;
   }
   else { cls="off"; txt="單機模式"; long="單機模式："+(SYNC.msg||"無法連線");
     help="這台的講稿、計時、翻頁全部正常，只是不會和其他裝置連動。常見原因：目前這個預覽環境禁止連外網路——把這個檔案放到自己的網址（GitHub Pages、Netlify 等）再開，同步就會通。" }
@@ -683,7 +745,8 @@ function start(role){
     SYNC.catchup();                                      /* 同時自己補一次課 */
     setInterval(function(){ SYNC.beat() },60000);
   }
-  setInterval(function(){ SYNC.keepalive() },5000);      /* 只檢查連線，不送訊息 */
+  setInterval(function(){ SYNC.keepalive() },5000);
+      /* 只檢查連線，不送訊息 */
   paint();
 }
 $("pickLead").onclick=function(){ start("lead") };
@@ -737,6 +800,7 @@ addEventListener("orientationchange",function(){setTimeout(fit,250)});
 
 paint();
 SYNC.probe();
+MQ.init();
 </script>
 </body>
 </html>
