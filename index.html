@@ -109,6 +109,11 @@ h1{font-size:calc(24px*var(--k));font-weight:600;margin:0;line-height:1.2}
   margin:0 0 calc(20px*var(--k));font-weight:500}
 .fdo{font-size:calc(31px*var(--k));line-height:1.8;margin:0 0 calc(16px*var(--k));font-weight:500}
 .fnote{font-size:calc(20px*var(--k));line-height:1.8;color:var(--paper-dim);margin:calc(10px*var(--k)) 0 0}
+.card.solo{text-align:center}
+.card.solo .top{justify-content:center;margin-bottom:0}
+.card.solo h1{font-size:calc(46px*var(--k));letter-spacing:.05em;line-height:1.35}
+.card.solo h1::after{content:"";display:block;width:88px;height:2px;margin:calc(26px*var(--k)) auto 0;
+  background:linear-gradient(90deg,transparent,var(--stream),transparent);opacity:.75}
 .wait{font-size:calc(26px*var(--k));color:var(--paper-dim);letter-spacing:.24em;margin:0}
 
 footer{position:fixed;left:8px;right:0;bottom:0;height:76px;display:flex;gap:10px;
@@ -260,7 +265,7 @@ body.follow main{z-index:1}
 const STEPS = [
 {
   no:1, sec:105, tag:"我說", cls:"t-say", title:"開場",
-  cue:"音樂還沒開始",
+  cue:"",
   html:
   '<p class="say">今天的敬拜會跟平常比較不一樣。</p>'+
   '<p class="say">大家可以坐在位置上，安靜心，閉上眼睛。<br>'+
@@ -270,7 +275,7 @@ const STEPS = [
 },
 {
   no:2, sec:75, tag:"我說 · 禱告", cls:"t-say", title:"開場禱告",
-  cue:"仍然沒有音樂",
+  cue:"",
   html:
   '<p class="say">親愛的天父，謝謝您現在就在這裡。<br>'+
   '我們把等一下的時間交托給你。</p>'+
@@ -535,6 +540,30 @@ var SYNC={
   push:function(n){ if(this.ok && ROLE==="lead") this.post({p:n,t:Date.now()}) },
   /* 會眾：定時報到，讓領袖看得到台數 */
   beat:function(){ if(this.ok && ROLE==="follow") this.post({hb:this.id,t:Date.now()}) },
+  /* 保險：主動查詢目前頁碼，避免漏收訊息後就停住 */
+  poll:function(){
+    if(ROLE!=="follow"||MANUAL)return;
+    var S=this;
+    fetch("https://"+S.HOST+"/"+S.TOPIC+"/json?poll=1&since=10m")
+      .then(function(r){ return r.text() })
+      .then(function(t){
+        var lines=t.trim().split("\n"), last=null;
+        for(var k=0;k<lines.length;k++){
+          try{
+            var e=JSON.parse(lines[k]);
+            if(e.event==="message"&&e.message){
+              var d=JSON.parse(e.message);
+              if(typeof d.p==="number") last=d.p;
+            }
+          }catch(_){}
+        }
+        if(last!==null&&last!==i&&last>=0&&last<STEPS.length&&!MANUAL){
+          i=last; left=STEPS[i].sec; render();
+        }
+        if(S.state!=="ok"){ S.ok=true; S.state="ok"; paint() }
+      })
+      .catch(function(){});
+  },
   /* 保活：連線掉了就重連 */
   pull:function(){
     if(!this.ws || this.ws.readyState>1){ if(this.state==="ok"){this.state="check";paint()} this.probe() }
@@ -583,7 +612,7 @@ function fit(){
 function render(){
   var s=STEPS[i];
   var v=(ROLE==="follow" && FV[i]) ? FV[i] : s;
-  $("main").innerHTML='<div class="card"><div class="top">'+
+  $("main").innerHTML='<div class="card'+((ROLE==="follow"&&!v.html)?' solo':'')+'"><div class="top">'+
     (v.tag ? '<span class="tag '+v.cls+'">'+v.tag+'</span>' : '')+
     (v.title ? '<h1>'+v.title+'</h1>' : '')+
     ((ROLE==="follow"||!s.cue) ? '' : '<p class="cue">'+s.cue+'</p>')+'</div>'+v.html+'</div>';
@@ -626,9 +655,10 @@ function start(role){
     SYNC.count();
   }else{
     SYNC.beat();
-    setInterval(function(){ SYNC.pull() },2000);
+    setInterval(function(){ SYNC.pull() },3000);
+    setInterval(function(){ SYNC.poll() },4000);
     setInterval(function(){ SYNC.beat() },15000);
-    SYNC.pull();
+    SYNC.pull(); SYNC.poll();
   }
   paint();
 }
@@ -675,6 +705,9 @@ $("main").addEventListener("touchend",function(e){
   if(Math.abs(dx)>60)go(dx<0?i+1:i-1);
   x0=null;
 },{passive:true});
+document.addEventListener("visibilitychange",function(){
+  if(document.visibilityState==="visible" && ROLE==="follow"){ SYNC.pull(); SYNC.poll() }
+});
 addEventListener("resize",fit);
 addEventListener("orientationchange",function(){setTimeout(fit,250)});
 
