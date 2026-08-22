@@ -491,7 +491,7 @@ var SYNC={
   id:"d"+Math.random().toString(16).slice(2,8),
   ws:null, seen:{},
 
-  url:function(){ return "wss://"+this.HOST+"/"+this.TOPIC+"/ws?since=10m" },
+  url:function(){ return "wss://"+this.HOST+"/"+this.TOPIC+"/ws" },
   post:function(obj){
     return fetch("https://"+this.HOST+"/"+this.TOPIC,
       {method:"POST", body:JSON.stringify(obj)}).catch(function(){});
@@ -544,7 +544,7 @@ var SYNC={
   poll:function(){
     if(ROLE!=="follow"||MANUAL)return;
     var S=this;
-    fetch("https://"+S.HOST+"/"+S.TOPIC+"/json?poll=1&since=10m")
+    fetch("https://"+S.HOST+"/"+S.TOPIC+"/json?poll=1&since=20s")
       .then(function(r){ return r.text() })
       .then(function(t){
         var lines=t.trim().split("\n"), last=null;
@@ -612,7 +612,7 @@ function fit(){
 function render(){
   var s=STEPS[i];
   var v=(ROLE==="follow" && FV[i]) ? FV[i] : s;
-  $("main").innerHTML='<div class="card'+((ROLE==="follow"&&!v.html)?' solo':'')+'"><div class="top">'+
+  $("main").innerHTML='<div class="card'+(!v.html?' solo':'')+'"><div class="top">'+
     (v.tag ? '<span class="tag '+v.cls+'">'+v.tag+'</span>' : '')+
     (v.title ? '<h1>'+v.title+'</h1>' : '')+
     ((ROLE==="follow"||!s.cue) ? '' : '<p class="cue">'+s.cue+'</p>')+'</div>'+v.html+'</div>';
@@ -652,6 +652,7 @@ function start(role){
     SYNC.clear();
     SYNC.push(i);
     setInterval(function(){ SYNC.count() },12000);
+    setInterval(function(){ SYNC.push(i) },10000);
     SYNC.count();
   }else{
     SYNC.beat();
